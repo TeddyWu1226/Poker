@@ -25,13 +25,12 @@ class PokerDefinition:
 
     @staticmethod
     def help():
-        print("""
-        花色:
-        黑桃♠（p）、梅花♣（t）
-        紅心♥（h）、方塊♦（c)
-        數字: 1 ~ 13
+        print("""花色:
+黑桃♠（p）、梅花♣（t）
+紅心♥（h）、方塊♦（c)
+數字: 1 ~ 13
         
-        ex: 'p5'、'c13'
+ex: 'p5'、'c13'
         """)
 
 
@@ -41,7 +40,7 @@ class PokerCard(PokerDefinition):
     :param _type: 類型
     黑桃♠（p）、梅花♣（t）
     紅心♥（h）、方塊♦（c)
-    :param _type: 數字(1~13)
+    :param _number: 數字(1~13)
 
     """
 
@@ -92,10 +91,23 @@ class PokerCard(PokerDefinition):
 
 
 class PokerGroup(PokerDefinition):
-    def __init__(self, quantity=52):
+    def __init__(self, initial_card=None, quantity=52):
         super().__init__()
+        if initial_card is None:
+            initial_card = []
+        self.card_list = initial_card
         self.quantity = quantity
-        self.card_list = []
+
+    @staticmethod
+    def check_poker_type(card):
+        if isinstance(card, PokerCard):
+            return card
+        else:
+            try:
+                card = PokerCard(card[0], int(card[1:]))
+                return card
+            except Exception:
+                ValueError('格式錯誤,請使用PokerCard class 或是 "p5","t3"寫法')
 
     def content(self, as_class=False):
         """
@@ -150,9 +162,9 @@ class PokerGroup(PokerDefinition):
         else:
             return res.text
 
-    def draw(self, number=1, _from='top', as_class=False):
+    def draw(self, number=1, _from='top', as_class=True):
         """
-        抽牌(抽數量)
+        抽牌(照順序抽數量)
         :param number: 張數
         :param _from: 從哪邊(top、bottom)
         :param as_class:回傳class格式
@@ -168,3 +180,30 @@ class PokerGroup(PokerDefinition):
                 drew_card = self.card_list.pop(0)
             res.append(drew_card if as_class else drew_card.text)
         return res
+
+    def add(self, poker_card_list, is_unique=True):
+        for poker_card in poker_card_list:
+            poker_card = self.check_poker_type(poker_card)
+            # 透過映射關係找到牌
+            map_card_list = list(map(lambda x: x.text, self.card_list))
+            if is_unique:
+                if poker_card.text in map_card_list:
+                    print(f'{poker_card} 已存在在牌堆裡,略過添加')
+                    continue
+            self.card_list.append(poker_card)
+
+
+def _convert_poker_type(card):
+    """
+    轉換為pokerCard class
+    :param card:
+    :return:
+    """
+    if isinstance(card, PokerCard):
+        return card
+    else:
+        try:
+            card = PokerCard(card[0], int(card[1:]))
+            return card
+        except Exception:
+            ValueError('格式錯誤,請使用PokerCard class 或是 "p5","t3"寫法')
