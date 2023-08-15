@@ -1,4 +1,4 @@
-from Poker.PokerRule import PokerGroup
+from PokerRule import PokerGroup
 
 if __name__ == '__main__':
     stack = PokerGroup()
