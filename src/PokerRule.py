@@ -58,6 +58,22 @@ class PokerCard(PokerDefinition):
         else:
             self._color = 'red'
 
+    # 比較運算符定義
+    def __lt__(self, other):
+        return self.value < other.value
+
+    def __le__(self, other):
+        return self.value <= other.value
+
+    def __eq__(self, other):
+        return self.value == other.value
+
+    def __gt__(self, other):
+        return self.value > other.value
+
+    def __ge__(self, other):
+        return self.value >= other.value
+
     @property
     def color(self):
         return self._color
@@ -69,6 +85,12 @@ class PokerCard(PokerDefinition):
     @property
     def type(self):
         return self._type
+
+    def __str__(self):
+        return str(self.img)
+
+    def __repr__(self):
+        return str(self.img)
 
     @property
     def value(self):

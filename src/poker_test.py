@@ -1,4 +1,4 @@
-from PokerRule import PokerGroup
+from PokerRule import PokerGroup, PokerCard
 from TexasHoldem import PokerCardType
 
 
@@ -19,6 +19,7 @@ class Player:
 class ClassicPokerGame:
     def __init__(self, players: list, hand_number=5):
         self.players = players
+        self.player_num = 4
         self.hand_number = hand_number
         self.stage = 0
         self.dealer_stack = PokerGroup()
@@ -37,6 +38,8 @@ class ClassicPokerGame:
         :return:
         """
         print('遊戲開始')
+        self.player_num = len(self.players)
+        print(f'玩家人數: {self.player_num} 人')
         self.dealer_stack.fill_card_group(is_shuffle=True)
 
 
