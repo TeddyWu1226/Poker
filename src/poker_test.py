@@ -2,7 +2,7 @@ from enum import Enum
 from time import sleep
 from itertools import combinations
 from PokerRule import PokerGroup, PokerCard
-from TexasHoldem import PokerCardType
+from TexasHoldem import TexasRule, CardTypeEnumCn, CardTypeEnum, CardTypeStageEnum
 
 
 class PlayerStatus(Enum):
@@ -139,6 +139,18 @@ class ClassicPokerGame:
         """
         self._appear_stack.add(self._dealer_stack.draw(add_num))
 
+    @staticmethod
+    def C_function(original_list: list, sublist_length=5) -> list:
+        """
+        C函數 (CX取X)
+        :param original_list: 總數
+        :param sublist_length: 取數
+        :return:
+        """
+        sub_lists = list(combinations(original_list, sublist_length))
+        sub_lists = [list(sub_list) for sub_list in sub_lists]
+        return sub_lists
+
     def card_check(self, player_num):
         """
         檢查手牌與顯牌的牌型
@@ -147,18 +159,26 @@ class ClassicPokerGame:
         specify_player = self.legal_number_player(player_num)
         all_card_list = specify_player.show_hand(as_class=True) + self._appear_stack.content(as_class=True)
 
-        def generate_sub_lists(original_list: list, sublist_length=5) -> list:
-            from itertools import combinations
-            sub_lists = list(combinations(original_list, sublist_length))
-            sub_lists = [list(sub_list) for sub_list in sub_lists]
-            return sub_lists
-
-        sub_card_lists = generate_sub_lists(all_card_list)
-        for i in sub_card_lists:
-            print(i)
-        print(f'有 {len(sub_card_lists)} 種牌型')
-
-        return all_card_list
+        sub_len = 5 if len(all_card_list) >= 5 else len(all_card_list)
+        sub_card_lists = self.C_function(all_card_list, sub_len)
+        biggest_hand_type = []
+        for sub_cards in sub_card_lists:
+            if not biggest_hand_type:
+                biggest_hand_type = sub_cards
+            else:
+                old_hand_type, old_value = TexasRule(biggest_hand_type).check
+                new_hand_type, new_value = TexasRule(sub_cards).check
+                if CardTypeStageEnum[new_hand_type].value > CardTypeStageEnum[old_hand_type].value:
+                    biggest_hand_type = sub_cards
+                    continue
+                elif CardTypeStageEnum[new_hand_type].value == CardTypeStageEnum[old_hand_type].value:
+                    if new_value > old_value:
+                        biggest_hand_type = sub_cards
+                    continue
+                else:
+                    continue
+        final_hand_type, final_value = TexasRule(biggest_hand_type).check
+        return final_hand_type, final_value
 
 
 if __name__ == '__main__':
@@ -178,8 +198,9 @@ if __name__ == '__main__':
     # 增加顯牌
     sleep(1)
     game.add_appear_card(3)
-    print(f'顯牌有: {game.appear_stack}')
+    # print(f'顯牌有: {game.appear_stack}')
     game.add_appear_card(2)
     print(f'顯牌有: {game.appear_stack}')
+
 
     print(game.card_check(1))

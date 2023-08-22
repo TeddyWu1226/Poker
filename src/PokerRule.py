@@ -74,6 +74,41 @@ class PokerCard(PokerDefinition):
     def __ge__(self, other):
         return self.value >= other.value
 
+    def __repr__(self):
+        return str(self.img)
+
+    def __add__(self, other):
+        if isinstance(other, PokerCard):
+            return self.value + other.value
+        else:
+            raise TypeError('PokerCard型別只能跟PokerCard相加')
+
+    def __iadd__(self, other):
+        if isinstance(other, PokerCard):
+            return self.value + other.value
+        else:
+            raise TypeError('PokerCard型別只能跟PokerCard相加')
+
+    def __int__(self):
+        return self.value
+
+    def __hash__(self):
+        return self.value
+
+    def __getitem__(self, key):
+        if key == 'color':
+            return self._color
+        elif key == 'type':
+            return self._type
+        elif key == 'number':
+            return self._number
+        elif key == 'value':
+            return self.value
+        elif key == ' text':
+            return self.text
+        else:
+            raise TypeError(f'不存在{key}屬性，請用value or number')
+
     @property
     def color(self):
         return self._color
@@ -85,12 +120,6 @@ class PokerCard(PokerDefinition):
     @property
     def type(self):
         return self._type
-
-    def __str__(self):
-        return str(self.img)
-
-    def __repr__(self):
-        return str(self.img)
 
     @property
     def value(self):
@@ -229,3 +258,33 @@ def _convert_poker_type(card):
             return card
         except Exception:
             ValueError('格式錯誤,請使用PokerCard class 或是 "p5","t3"寫法')
+
+
+def poker_value_sum(card_list):
+    """
+    計算卡片價值加總
+    :param card_list:
+    :return:
+    """
+    total = 0
+    for card in card_list:
+        total += card.value
+
+    return total
+
+
+def filter_poker_list(card_list, **kwargs):
+    """
+    過濾卡片LIST
+    :param card_list:
+    :param kwargs:
+    :return:
+    """
+
+    def filter_con(card):
+        _con = True
+        for key in kwargs:
+            _con = _con and card[key] == kwargs[key]
+        return _con
+
+    return list(filter(filter_con, card_list))

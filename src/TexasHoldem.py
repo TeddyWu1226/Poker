@@ -2,7 +2,7 @@ import copy
 from collections import Counter
 from enum import Enum
 
-from PokerRule import PokerGroup, PokerDefinition, _convert_poker_type
+from PokerRule import PokerGroup, PokerDefinition, _convert_poker_type, poker_value_sum, filter_poker_list
 
 
 class CardTypeEnum(Enum):
@@ -18,7 +18,34 @@ class CardTypeEnum(Enum):
     HighCard = 'HighCard'
 
 
-class PokerCardType(PokerDefinition):
+class CardTypeStageEnum(Enum):
+    RoyalFlush = 100
+    StraightFlush = 99
+    FourKind = 98
+    FullHouse = 97
+    Flush = 96
+    Straight = 95
+    ThreeKind = 94
+    TwoPair = 93
+    OnePair = 92
+    HighCard = 0
+
+
+CardTypeEnumCn = {
+    'RoyalFlush': '同花大順',
+    'StraightFlush': '同花順',
+    'FourKind': '鐵支',
+    'FullHouse': '葫蘆',
+    'Flush': '同花',
+    'Straight': '順子',
+    'ThreeKind': '三條',
+    'TwoPair': '兩對',
+    'OnePair': '一對',
+    'HighCard': '雜牌'
+}
+
+
+class TexasRule(PokerDefinition):
     def __init__(self, card_list, as_class=False):
         super().__init__()
         self.card_list = []
@@ -29,11 +56,12 @@ class PokerCardType(PokerDefinition):
         self.number_count = {}
         self.type_count = {}
 
-    def list_sort(self, key, as_class=False):
+    def list_sort(self, key, as_class=False, is_number=False):
         """
-
+        排序(由大到小)
         :param key:number,value
         :param as_class:
+        :param is_number:
         :return:
         """
         sorted_list = copy.deepcopy(self.card_list)
@@ -52,7 +80,10 @@ class PokerCardType(PokerDefinition):
         if as_class:
             return sorted_list
         else:
-            return list(map(lambda x: x.img, sorted_list))
+            if is_number:
+                return list(map(lambda x: x.number, sorted_list))
+            else:
+                return list(map(lambda x: x.img, sorted_list))
 
     @property
     def number_sorted(self):
@@ -82,89 +113,120 @@ class PokerCardType(PokerDefinition):
 
     # 牌型判斷(基本型)
     @property
-    def judge_straight_by_number(self):
+    def judge_straight_by_number(self) -> (bool, int):
         """
         透過數字排列判斷順子
-        :return:
+        :return: Bool , total_value(int)
         """
         base_list = self.list_sort('number', as_class=True)
         last_number = 0
+        if base_list[0].number == 1:
+            total_value = poker_value_sum(base_list) - 48
+        else:
+            total_value = poker_value_sum(base_list)
+        is_straight = True
         for index, card in enumerate(base_list):
             if not index:
                 pass
             else:
                 if card.number - last_number != 1:
-                    return False
+                    is_straight = False
+                    break
             last_number = card.number
-        return True
+        if not is_straight:
+            is_straight, total_value = self.judge_biggest_straight
+        return is_straight, total_value
 
     @property
-    def judge_straight_by_value(self):
+    def judge_biggest_straight(self) -> (bool, int):
         """
-        透過價值排列判斷順子
-        :return:
+        判斷大順
+        :return: Bool , total_value(int)
         """
-        base_list = self.list_sort('value', as_class=True)
-        last_value = 0
-        for index, card in enumerate(base_list):
-            if not index:
-                pass
-            else:
-                if card.value - last_value > 4:
-                    return False
-            last_value = card.value
-        return True
+        base_list = self.list_sort('number', as_class=True)
+        base_num_list = self.list_sort('number', as_class=False, is_number=True)
+        total_value = poker_value_sum(base_list)
+        if {10, 11, 12, 13, 1} - set(base_num_list):
+            return False, 0
+        return True, total_value
 
     @property
-    def is_straight(self):
+    def is_straight(self) -> (bool, int):
         """
         是否為順子
-        :return:
+        :return: Bool,int
         """
         if len(self.card_list) < 5:
-            return False
-        # by number
-        if self.judge_straight_by_number:
-            return True
-        # by value
-        if self.judge_straight_by_value:
-            return True
-        return False
+            return False, 0
+        return self.judge_straight_by_number
 
     @property
-    def is_flush(self):
+    def is_flush(self) -> (bool, int):
         """
         是否為同花
-        :return: Bool
+        :return: Bool , total_value(int)
         """
         if len(self.card_list) < 5:
             return False
         type_list = self.get_count('type')
-        if 5 in type_list.values():
-            return True
-        return False
+        has_flush = False
+        for _type_count in type_list.values():
+            if _type_count >= 5:
+                has_flush = True
+                break
+        total_value = poker_value_sum(self.card_list)
+        return has_flush, total_value
 
     @property
-    def judge_kinds(self):
+    def judge_kinds(self) -> (bool, int):
         """
         是否為多對
-        :return: String
+        :return: String,total_value(int)
         """
         if len(self.card_list) < 2:
-            return False
-        count_list = self.get_count('number').values()
+            return False, 0
+
+        count_list = list(self.get_count('number').values())
+        num_list = list(self.get_count('number').keys())
         if 4 in count_list:
-            return CardTypeEnum.FourKind.value
+            _return_type = CardTypeEnum.FourKind.value
+            total_value = poker_value_sum(self.card_list)
         elif 3 in count_list and 2 in count_list:
-            return CardTypeEnum.FullHouse.value
+            _return_type = CardTypeEnum.FullHouse.value
+            total_value = poker_value_sum(self.card_list)
         elif 3 in count_list:
-            return CardTypeEnum.ThreeKind.value
-        elif list(count_list).count(2) == 2:
-            return CardTypeEnum.TwoPair.value
+            # 找到數量有3張的牌數字是多少
+            three_kind_num = num_list[count_list.index(3)]
+            # 找到三條的牌列
+            filter_three_kind = filter_poker_list(self.card_list, number=three_kind_num)
+            other_cards = list(set(self.card_list) - set(filter_three_kind))
+            _return_type = CardTypeEnum.ThreeKind.value
+            total_value = poker_value_sum(filter_three_kind) * 1000 + poker_value_sum(other_cards)
+        elif count_list.count(2) == 2:
+            total_value = 0
+            count_dict = self.get_count('number')
+            copy_card_list = copy.deepcopy(self.card_list)
+            for num in count_dict:
+                if count_dict[num] == 2:
+                    _filter_pair = filter_poker_list(self.card_list, number=num)
+                    copy_card_list = list(set(self.card_list) - set(_filter_pair))
+                    total_value += poker_value_sum(_filter_pair) * 1000
+            total_value += poker_value_sum(copy_card_list)
+            _return_type = CardTypeEnum.TwoPair.value
+
         elif 2 in count_list:
-            return CardTypeEnum.OnePair.value
+            # 找到數量有2張的牌數字是多少
+            pair_num = num_list[count_list.index(2)]
+            # 找到三條的牌列
+            filter_pair = filter_poker_list(self.card_list, number=pair_num)
+            other_cards = list(set(self.card_list) - set(filter_pair))
+            _return_type = CardTypeEnum.OnePair.value
+            total_value = poker_value_sum(filter_pair) * 1000 + poker_value_sum(other_cards)
         else:
-            return False
+            _return_type = CardTypeEnum.HighCard.value
+            total_value = poker_value_sum(self.card_list)
+
+        return _return_type, total_value
 
     @property
     def get_total_value(self):
@@ -172,25 +234,25 @@ class PokerCardType(PokerDefinition):
         return sum(value_list)
 
     @property
-    def check(self):
+    def check(self) -> (bool, int):
         """
         檢查牌型
-        :return:
+        :return: 牌型、
         """
-        is_flush = self.is_flush
-        is_straight = self.is_straight
-        total = self.get_total_value
-
-        if is_flush and is_straight and total >= 205:
+        is_flush, flush_value = self.is_flush
+        is_straight, straight_value = self.is_straight
+        if is_flush and is_straight and straight_value >= 205:
             ans = CardTypeEnum.RoyalFlush.value
+            return_value = straight_value
         elif is_flush and is_straight:
             ans = CardTypeEnum.StraightFlush.value
+            return_value = straight_value
         elif is_flush:
             ans = CardTypeEnum.Flush.value
+            return_value = flush_value
         elif is_straight:
             ans = CardTypeEnum.Straight.value
+            return_value = straight_value
         else:
-            ans = self.judge_kinds
-            if not ans:
-                ans = CardTypeEnum.HighCard.value
-        return ans
+            ans, return_value = self.judge_kinds
+        return ans, return_value
