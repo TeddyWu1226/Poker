@@ -239,20 +239,84 @@ class TexasRule(PokerDefinition):
         檢查牌型
         :return: 牌型、
         """
-        is_flush, flush_value = self.is_flush
-        is_straight, straight_value = self.is_straight
-        if is_flush and is_straight and straight_value >= 205:
-            ans = CardTypeEnum.RoyalFlush.value
-            return_value = straight_value
-        elif is_flush and is_straight:
-            ans = CardTypeEnum.StraightFlush.value
-            return_value = straight_value
-        elif is_flush:
-            ans = CardTypeEnum.Flush.value
-            return_value = flush_value
-        elif is_straight:
-            ans = CardTypeEnum.Straight.value
-            return_value = straight_value
+        if len(self.card_list) >= 5:
+            is_flush, flush_value = self.is_flush
+            is_straight, straight_value = self.is_straight
+            if is_flush and is_straight and straight_value >= 205:
+                ans = CardTypeEnum.RoyalFlush.value
+                return_value = straight_value
+            elif is_flush and is_straight:
+                ans = CardTypeEnum.StraightFlush.value
+                return_value = straight_value
+            elif is_flush:
+                ans = CardTypeEnum.Flush.value
+                return_value = flush_value
+            elif is_straight:
+                ans = CardTypeEnum.Straight.value
+                return_value = straight_value
+            else:
+                ans, return_value = self.judge_kinds
         else:
             ans, return_value = self.judge_kinds
         return ans, return_value
+
+
+def get_biggest_stack_type(stacks: list):
+    """
+    從stacks 中取出 最大的牌型組合
+    :param stacks: [
+                    [PokerCard(),PokerCard(),...],
+                    [PokerCard(),PokerCard(),...],...
+                    ]
+    :return: [PokerCard(),PokerCard(),...],str,int
+    """
+    biggest_hand_type = []
+    for sub_cards in stacks:
+        if not biggest_hand_type:
+            biggest_hand_type = sub_cards
+        else:
+            old_hand_type, old_value = TexasRule(biggest_hand_type).check
+            new_hand_type, new_value = TexasRule(sub_cards).check
+            if CardTypeStageEnum[new_hand_type].value > CardTypeStageEnum[old_hand_type].value:
+                biggest_hand_type = sub_cards
+                continue
+            elif CardTypeStageEnum[new_hand_type].value == CardTypeStageEnum[old_hand_type].value:
+                if new_value > old_value:
+                    biggest_hand_type = sub_cards
+                continue
+            else:
+                continue
+    final_hand_type, final_value = TexasRule(biggest_hand_type).check
+    return sorted(biggest_hand_type), final_hand_type, final_value
+
+
+def judge_winner(hands_list: list):
+    """
+    判斷贏家
+    :param hands_list: [
+                        {...
+                         "hand_type":str,
+                         "value":int,
+                        },...
+                       ]
+    :return:
+    """
+    biggest_hand = {}
+    for hand in hands_list:
+        if not biggest_hand:
+            biggest_hand = hand
+        else:
+            old_hand_type = biggest_hand.get('hand_type')
+            old_hand_value = biggest_hand.get('value')
+            new_hand_type = hand.get('hand_type')
+            new_hand_value = hand.get('value')
+            if CardTypeStageEnum[new_hand_type].value > CardTypeStageEnum[old_hand_type].value:
+                biggest_hand = hand
+                continue
+            elif CardTypeStageEnum[new_hand_type].value == CardTypeStageEnum[old_hand_type].value:
+                if new_hand_value > old_hand_value:
+                    biggest_hand = hand
+                continue
+            else:
+                continue
+    return biggest_hand

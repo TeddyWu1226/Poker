@@ -2,7 +2,7 @@ from enum import Enum
 from time import sleep
 from itertools import combinations
 from PokerRule import PokerGroup, PokerCard
-from TexasHoldem import TexasRule, CardTypeEnumCn, CardTypeEnum, CardTypeStageEnum
+from TexasHoldem import TexasRule, CardTypeEnumCn, CardTypeEnum, CardTypeStageEnum, get_biggest_stack_type, judge_winner
 
 
 class PlayerStatus(Enum):
@@ -83,14 +83,27 @@ class ClassicPokerGame:
         :return:
         """
         self._stage = 1
-        print('遊戲開始')
+        # print('遊戲開始')
         self._player_num = len(self._players)
-        print(f'玩家人數: {self._player_num} 人')
-        for index, player in enumerate(self._players):
-            print(f'{index + 1} 號玩家: {player.name}')
+        # print(f'玩家人數: {self._player_num} 人')
+        # for index, player in enumerate(self._players):
+        # print(f'{index + 1} 號玩家: {player.name}')
         self._dealer_stack.fill_card_group(is_shuffle=True)
-        print('牌庫已重新整理')
+        # print('牌庫已重新整理')
         self.next_stage()
+
+    def add_appear_round(self, add_num=1):
+        """
+        增加顯牌回合
+        :param add_num:
+        :return:
+        """
+        # print(f'--------增加 {add_num} 張顯牌--------')
+        self.add_appear_card(add_num)
+        # print(f'顯牌有: {self.appear_stack}')
+        stronger = self.judge_player_winnable()
+        # print(f'當前贏面大的是 {stronger.get("index")} 號玩家 {stronger.get("player").name}')
+        return stronger
 
     def deal_specify(self, player_seat_num: int, deal_num=2):
         """
@@ -153,54 +166,89 @@ class ClassicPokerGame:
 
     def card_check(self, player_num):
         """
-        檢查手牌與顯牌的牌型
+        檢查手牌與顯牌的牌型，回傳最大組合
         :return:
         """
         specify_player = self.legal_number_player(player_num)
-        all_card_list = specify_player.show_hand(as_class=True) + self._appear_stack.content(as_class=True)
-
+        if self._appear_stack.content():
+            all_card_list = specify_player.show_hand(as_class=True) + self._appear_stack.content(as_class=True)
+        else:
+            all_card_list = specify_player.show_hand(as_class=True)
         sub_len = 5 if len(all_card_list) >= 5 else len(all_card_list)
         sub_card_lists = self.C_function(all_card_list, sub_len)
-        biggest_hand_type = []
-        for sub_cards in sub_card_lists:
-            if not biggest_hand_type:
-                biggest_hand_type = sub_cards
-            else:
-                old_hand_type, old_value = TexasRule(biggest_hand_type).check
-                new_hand_type, new_value = TexasRule(sub_cards).check
-                if CardTypeStageEnum[new_hand_type].value > CardTypeStageEnum[old_hand_type].value:
-                    biggest_hand_type = sub_cards
-                    continue
-                elif CardTypeStageEnum[new_hand_type].value == CardTypeStageEnum[old_hand_type].value:
-                    if new_value > old_value:
-                        biggest_hand_type = sub_cards
-                    continue
-                else:
-                    continue
-        final_hand_type, final_value = TexasRule(biggest_hand_type).check
-        return final_hand_type, final_value
+        return get_biggest_stack_type(sub_card_lists)
+
+    def judge_player_winnable(self):
+        """
+        根據當前情況 判斷當前贏家
+        :return:
+        """
+        player_hands = []
+        for num in range(1, self._player_num + 1):
+            player = self.legal_number_player(num)
+            if player:
+                card_list, hand_type, value = self.card_check(num)
+                player_hand = {
+                    "index": num,
+                    "player": player,
+                    "hand": player.show_hand(),
+                    'win_list': card_list,
+                    "hand_type": hand_type,
+                    "value": value,
+                }
+                # print(f"{num} 號玩家 {player.name} 有 {card_list} 類型:{hand_type}")
+                player_hands.append(player_hand)
+        return judge_winner(player_hands)
 
 
 if __name__ == '__main__':
+    def one_game():
+        # 牌局設定
+        win_list = []
+        game = ClassicPokerGame(_players=players)
+        # 遊戲開始
+        game.game_start()
+        # sleep(1)
+        # 發牌
+        # print('發牌')
+        game.deal_all()
+        # for player in players:
+        #     print(f'{player.name} 拿到 {player.show_hand()}')
+        # sleep(1)
+        stronger1 = game.judge_player_winnable()
+        win_list.append(stronger1.get('player').name)
+        # 增加顯牌
+        stronger2 = game.add_appear_round(3)
+        win_list.append(stronger2.get('player').name)
+        stronger3 = game.add_appear_round(1)
+        win_list.append(stronger3.get('player').name)
+        _winner = game.add_appear_round(1)
+        win_list.append(_winner.get('player').name)
+        return win_list, _winner
+
+
+    # 參數設定
+    RUN_TIME_NUM = 100
+    PLAYER_NUM = 10
+
     # 玩家設定
-    Ted = Player('Ted')
-    players = [Ted]
+    players = []
+    for time in range(1, PLAYER_NUM + 1):
+        players.append(Player(f'Player_{time}'))
 
-    # 牌局設定
-    game = ClassicPokerGame(_players=players)
-    # 遊戲開始
-    game.game_start()
-    sleep(1)
-    # 發牌
-    print('發牌')
-    game.deal_all()
-    print(f'你拿到 {Ted.show_hand()}')
-    # 增加顯牌
-    sleep(1)
-    game.add_appear_card(3)
-    # print(f'顯牌有: {game.appear_stack}')
-    game.add_appear_card(2)
-    print(f'顯牌有: {game.appear_stack}')
+    total_list = []
+    always_win_list = []
+    for time in range(1, RUN_TIME_NUM + 1):
+        print(f'---第 {time} 次測試---')
+        win_list, winner = one_game()
+        data_dict = {'win_list': win_list, "winner": winner}
+        # total_list.append(data_dict)
+        if win_list[0] == win_list[-1]:
+            always_win_list.append(tuple(sorted(winner.get('hand'))))
+            print('從頭贏到尾:', winner.get('hand'), '牌型:', winner.get('hand_type'))
+        else:
+            # print('贏:', winner.get('hand'), '牌型:', winner.get('hand_type'))
+            pass
 
-
-    print(game.card_check(1))
+    print('拿到就要打到底的好牌')
+    print(set(always_win_list))
